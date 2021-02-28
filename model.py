@@ -13,27 +13,30 @@ MODEL_DIR = PROJECT_DIR / 'models'
 
 
 class LinearQNet(nn.Module):
-    def __init__(self, input_size: int, hidden_size: int, output_size: int) -> None:
+    def __init__(self, model_cfg) -> None:
         super().__init__()
-        self.input_size = input_size
-        self.hidden_size = hidden_size
-        self.output_size = output_size
+        self.input_size = model_cfg.input_size
+        self.hidden_size = model_cfg.hidden_size
+        self.output_size = model_cfg.output_size
 
         self.layers = nn.Sequential(
+            nn.LayerNorm(self.input_size),
             nn.Linear(self.input_size, self.hidden_size),
+            nn.ReLU(),
+            nn.Linear(self.hidden_size, self.hidden_size),
             nn.ReLU(),
             nn.Linear(self.hidden_size, self.output_size)
         )
-    
+
     def forward(self, state: torch.Tensor):
         return self.layers(state)
 
-    def save(self, name: str) -> None:
+    def save(self, name: str) -> Path:
         model_dir = MODEL_DIR / name
         model_dir.mkdir(exist_ok=True, parents=True)
         state_filename = model_dir / 'state.pth'
         torch.save(self.state_dict(), str(state_filename))
-
+        return model_dir
 
 class QTrainer:
     def __init__(self, model, lr: float, gamma: float) -> None:
@@ -43,7 +46,7 @@ class QTrainer:
         self.gamma = gamma
         self.optimizer = optim.Adam(self.model.parameters(), self.lr)
         self.critereon = nn.MSELoss()
-    
+
     def train_step(self, state, action, reward, next_state, gameover) -> None:
         state = torch.tensor(state, dtype=torch.float)
         next_state = torch.tensor(next_state, dtype=torch.float)
@@ -68,11 +71,8 @@ class QTrainer:
                 Qnew = reward[idx] + self.gamma * next_pred[idx].max()
 
             selected_action = action[idx].argmax().item()
-            #log.info(f'{target[idx]} : {action[idx]}')
-            #log.info(f'{action[idx]} -> {selected_action}')
-            #log.info(f'Qnew: {Qnew}')
             target[idx, int(selected_action)] = Qnew
-        
+
         self.optimizer.zero_grad()
         loss = self.critereon(target, pred)
         loss.backward()

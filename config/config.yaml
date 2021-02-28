@@ -1,0 +1,21 @@
+game:
+  width: 640
+  height: 480
+  speed: 80
+  block_size: 20  # pixels per block
+  rewards:
+    eat: 10
+    dead: -10
+    move: -0.1
+agent:
+  batch_size: 1024
+  lr: 0.001
+  gamma: 0.9
+  epsilon: 0.6
+  random_until: 80
+  model:
+    input_size: 29
+    output_size: 4
+    hidden_size: 256
+  state:
+    lookback: 4  # add 4*this number to input_size
