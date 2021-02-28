@@ -7,10 +7,12 @@ import torch
 
 from game import SnakeGameAI
 from game.utils import Direction, BLOCK_SIZE, Point
+from model import LinearQNet, QTrainer
+from plotter import plot_scores
 
 log = logging.getLogger(__file__)
 MAX_MEMORY = 100_000
-BATCH_SIZE = 1000
+BATCH_SIZE = 1024
 LR = 0.001
 
 
@@ -18,10 +20,10 @@ class Agent:
     def __init__(self) -> None:
         self.n_games = 0
         self.epsilon = 0  # randomness
-        self.gamma = 0 # discount rate
+        self.gamma = 0.9 # discount rate
         self.memory = deque(maxlen=MAX_MEMORY)
-        self.model = None  # TODO
-        self.trainer = None  # TODO
+        self.model = LinearQNet(11, 256, 4)
+        self.trainer = QTrainer(self.model, LR, self.gamma)
 
     def get_state(self, game):
         head = game.snake[0]
@@ -71,7 +73,7 @@ class Agent:
 
     def train_long_memory(self):
         if len(self.memory) > BATCH_SIZE:
-            mini_batch = random.sample(self.memory, BATCH_SIZE)
+            mini_batch = random.sample(self.memory, BATCH_SIZE) # list of tuples
         else:
             mini_batch = self.memory
 
@@ -86,13 +88,23 @@ class Agent:
         self.epsilon = 80 - self.n_games
         action = [0, 0, 0, 0]
         if random.randint(0, 200) < self.epsilon:
-            move = random.randint(0, 4)
-            action[move] = 1
-        
+            log.info('Random move')
+            move = random.randint(0, len(action) - 1)
+        else:
+            log.info('Inferred move')
+            prediction = self.model(
+                torch.tensor(state, dtype=torch.float)
+            )
+            move = int(prediction.argmax().item())
+        action[move] = 1
+        return action
+
+
 def train():
-    plot_scores = []
-    plot_mean_scores = []
-    total_score = 0
+    single_game_scores = []
+    mean_game_scores = []
+    smoothing = 15
+    assert smoothing > 0
     record = 0
     agent = Agent()
     game = SnakeGameAI()
@@ -114,10 +126,13 @@ def train():
 
             if score > record:
                 record = score
-                # agent.model.save()
+                agent.model.save('high_score')
 
-        log.info(f'[Game {agent.n_games}] Score: {score} ({record})')
+            single_game_scores.append(score)
+            mean_game_scores.append(sum(single_game_scores[-smoothing:]) / smoothing)
 
+            log.info(f'[Game {agent.n_games}] Score: {score} ({record})')
+            plot_scores(single_game_scores, mean_game_scores)
 
 if __name__ == '__main__':
     logging.basicConfig(level=logging.INFO, format='%(asctime)s [%(name)s]: %(message)s')

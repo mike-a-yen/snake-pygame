@@ -55,6 +55,6 @@ BLUE2 = (0, 100, 255)
 BLACK = (0,0,0)
 
 BLOCK_SIZE = 20
-SPEED = 10
+SPEED = 50
 
 FONT = pygame.font.SysFont('arial', 25)
