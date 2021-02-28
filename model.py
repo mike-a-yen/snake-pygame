@@ -38,20 +38,26 @@ class LinearQNet(nn.Module):
         torch.save(self.state_dict(), str(state_filename))
         return model_dir
 
+
 class QTrainer:
     def __init__(self, model, lr: float, gamma: float) -> None:
-        assert gamma < 1
+        assert gamma >= 0 and gamma < 1
         self.model = model
         self.lr = lr
         self.gamma = gamma
         self.optimizer = optim.Adam(self.model.parameters(), self.lr)
         self.critereon = nn.MSELoss()
 
+    def compute_Q(self, reward, gameover, next_pred):
+        next_pred_max = next_pred.max(dim=1, keepdims=False).values
+        Qnew = reward + (1 - gameover) * self.gamma * next_pred_max
+        return Qnew
+
     def train_step(self, state, action, reward, next_state, gameover) -> None:
-        state = torch.tensor(state, dtype=torch.float)
-        next_state = torch.tensor(next_state, dtype=torch.float)
+        state = torch.tensor(state, dtype=torch.float32)
+        next_state = torch.tensor(next_state, dtype=torch.float32)
         action = torch.tensor(action, dtype=torch.long)
-        reward = torch.tensor(reward, dtype=torch.float)
+        reward = torch.tensor(reward, dtype=torch.float32)
 
         batch_size = state.shape[0]
         if state.ndim == 1:
@@ -61,17 +67,28 @@ class QTrainer:
             action = action.unsqueeze(0)
             reward = reward.unsqueeze(0)
             gameover = (gameover, )
+        gameover = torch.tensor(gameover, dtype=torch.float32)
 
+        selected_action = action.argmax(dim=1, keepdims=False)
         pred = self.model(state)
         next_pred = self.model(next_state)
+        Qnew = self.compute_Q(reward, gameover, next_pred)
+        #next_pred_max = next_pred.max(dim=1, keepdims=False).values
+        #if batch_size > 1:
+        #    log.info(f'R: {reward.shape} G: {gameover.shape} NPM: {next_pred_max.shape}')
+        #Qnew = reward + (1 - gameover) * self.gamma * next_pred_max
+        assert Qnew.shape[0] == batch_size
         target = pred.clone()
-        for idx in range(batch_size):
-            Qnew = reward[idx]
-            if not gameover[idx]:
-                Qnew = reward[idx] + self.gamma * next_pred[idx].max()
-
-            selected_action = action[idx].argmax().item()
-            target[idx, int(selected_action)] = Qnew
+        #if batch_size > 1:
+        #    log.info(f'Q: {Qnew.shape} T: {target.shape} S: {selected_action.shape}')
+        target[torch.arange(batch_size), selected_action] = Qnew.squeeze()
+        #for idx in range(batch_size):
+        #    Qnew = reward[idx]
+        #    if not gameover[idx]:
+        #        Qnew = reward[idx] + self.gamma * next_pred[idx].max()
+        #
+        #    selected_action = action[idx].argmax().item()
+        #    target[idx, int(selected_action)] = Qnew
 
         self.optimizer.zero_grad()
         loss = self.critereon(target, pred)

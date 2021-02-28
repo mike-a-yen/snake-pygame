@@ -5,29 +5,30 @@ from typing import Optional
 import numpy as np
 import pygame
 
-from .utils import *
-
+from .calculators import distance
+from .utils import Action, Direction, FONT, Point
+from .colors import *
 
 log = logging.getLogger(__name__)
 
 
 class SnakeGameBase:
-    def __init__(self, config) -> None:
-        self.config = config
-        self.rewards = config.game.rewards
-        self.block_size = config.game.block_size
-        self.play_speed = config.game.speed
-        self.w = config.game.width
-        self.h = config.game.height
+    def __init__(self, game_config) -> None:
+        self.config = game_config
+        self.rewards = self.config.rewards
+        self.block_size = self.config.block_size
+        self.play_speed = self.config.speed
+        self.w = self.config.width
+        self.h = self.config.height
         # init display
         self.display = pygame.display.set_mode((self.w, self.h))
         pygame.display.set_caption('Snake')
         self.clock = pygame.time.Clock()
         self.score: int
         self.food: Optional[Point]
+        self.food_last_eaten: int
         self.frame_iteration: int
         self.reset()
-
 
     def reset(self):
         # init game state
@@ -40,6 +41,7 @@ class SnakeGameBase:
 
         self.score = 0
         self.food = None
+        self.food_last_eaten = 0
         self._place_food()
         self.frame_iteration = 0
 
@@ -64,12 +66,27 @@ class SnakeGameBase:
             return True
         return False
 
+    def is_timeout(self):
+        return self.frame_iteration - self.food_last_eaten >= self.config.timeout
+
+    def compute_reward(self, delta_distance_to_food) -> float:
+        if self.is_collision() or self.is_timeout():
+            return self.rewards.dead
+        reward = (
+            self.rewards.move * delta_distance_to_food / (self.w + self.h)
+            + self.rewards.hunger * (self.frame_iteration - self.food_last_eaten)
+        )
+        if self.head == self.food:
+            reward += self.rewards.eat
+        return reward
+
     def _update_ui(self):
         self.display.fill(BLACK)
 
+        snake_colors = SNAKE_COLORS[self.config.snake.color]
         for pt in self.snake:
-            pygame.draw.rect(self.display, BLUE1, pygame.Rect(pt.x, pt.y, self.block_size, self.block_size))
-            pygame.draw.rect(self.display, BLUE2, pygame.Rect(pt.x+4, pt.y+4, 12, 12))
+            pygame.draw.rect(self.display, snake_colors[0], pygame.Rect(pt.x, pt.y, self.block_size, self.block_size))
+            pygame.draw.rect(self.display, snake_colors[1], pygame.Rect(pt.x + 4, pt.y + 4, 12, 12))
 
         pygame.draw.rect(self.display, RED, pygame.Rect(self.food.x, self.food.y, self.block_size, self.block_size))
 
@@ -78,7 +95,6 @@ class SnakeGameBase:
         text = FONT.render(f'Frame: {self.frame_iteration}', True, WHITE)
         self.display.blit(text, [self.w - 128, 0])
         pygame.display.flip()
-
 
     def _move(self, action):
         # [straight, right, left]
@@ -120,27 +136,29 @@ class SnakeGameAI(SnakeGameBase):
                 pygame.quit()
                 quit()
 
+        old_distance_to_food = distance(self.head, self.food, 'manhattan')
         # 2. move
         move_action = Action(action)
         self._move(move_action) # update the head
         self.snake.insert(0, self.head)
+        distance_to_food = distance(self.head, self.food, 'manhattan')
 
         # 3. check if game over
-        reward = 0
+        delta_distance = distance_to_food - old_distance_to_food
+        reward = self.compute_reward(delta_distance)
         game_over = False
-        if self.is_collision() or self.frame_iteration > 100 * len(self.snake):
+        if self.is_collision() or self.is_timeout():
             game_over = True
-            reward = self.rewards.dead
             return reward, game_over, self.score
 
         # 4. place new food or just move
         if self.head == self.food:
             self.score += 1
-            reward = self.rewards.eat
+            self.food_last_eaten = self.frame_iteration
             self._place_food()
         else:
             self.snake.pop()
-        reward += self.rewards.move
+
         # 5. update ui and clock
         self._update_ui()
         self.clock.tick(self.play_speed)

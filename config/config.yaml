@@ -1,21 +1,32 @@
+tags:
+  - debug
+max_games: 500
+plt_display: false
 game:
   width: 640
   height: 480
   speed: 80
   block_size: 20  # pixels per block
+  snake:
+    color: 'blue'
   rewards:
     eat: 10
     dead: -10
-    move: -0.1
+    move: 0.1  # reward for moving closer to food
+    hunger: 0.0  # adjust reward for spending more time between eating
+  timeout: 100
 agent:
-  batch_size: 1024
+  max_memory_size: 100000
+  batch:
+    size: 1024
+    method: 'linear'
   lr: 0.001
   gamma: 0.9
   epsilon: 0.6
-  random_until: 80
+  random_until: 100
   model:
-    input_size: 29
+    input_size: 13
     output_size: 4
     hidden_size: 256
   state:
-    lookback: 4  # add 4*this number to input_size
+    lookback: 0  # add 4*this number to input_size
