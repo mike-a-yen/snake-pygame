@@ -179,6 +179,8 @@ def train(cfg) -> None:
                 if cfg.plt_display:
                     plot_scores(single_game_scores, mean_game_scores)
                 break
+    run.summary.update({'high_score': record, 'mean_lastest_score': np.mean(single_game_scores[-10:])})
+
 
 if __name__ == '__main__':
     train()
