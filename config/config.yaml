@@ -28,5 +28,6 @@ agent:
     input_size: 13
     output_size: 4
     hidden_size: 256
+    initial_weights: "human-supervision:latest"  # zsz74lng  # human pretraining
   state:
     lookback: 0  # add 4*this number to input_size

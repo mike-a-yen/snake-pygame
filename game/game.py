@@ -6,7 +6,7 @@ import numpy as np
 import pygame
 
 from .calculators import distance
-from .utils import Action, Direction, FONT, Point
+from .utils import Action, Direction, DirectionActionMap, FONT, Point
 from .colors import *
 
 log = logging.getLogger(__name__)
@@ -167,7 +167,7 @@ class SnakeGameAI(SnakeGameBase):
 
 
 class SnakeGameHuman(SnakeGameAI):
-    def get_user_action(self):
+    def get_user_action(self) -> Action:
         """
         Get the keyboard input and map it to a model action.
         """
@@ -192,5 +192,5 @@ class SnakeGameHuman(SnakeGameAI):
         return action
 
 
-    def play_step(self):
-        return super().play_step(self.get_user_action())
+    #def play_step(self):
+    #    return super().play_step(self.get_user_action())

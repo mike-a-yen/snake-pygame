@@ -17,6 +17,35 @@ class Action(Enum):
     LEFT = [0, 0, 1, 0]
     BACK = [0, 0, 0, 1]
 
+
+DirectionActionMap = {
+    Direction.LEFT: {
+        Direction.LEFT: Action.STRAIGHT,
+        Direction.RIGHT: Action.BACK,
+        Direction.UP: Action.RIGHT,
+        Direction.DOWN: Action.LEFT
+    },
+    Direction.RIGHT: {
+        Direction.LEFT: Action.BACK,
+        Direction.RIGHT: Action.STRAIGHT,
+        Direction.UP: Action.LEFT,
+        Direction.DOWN: Action.RIGHT
+    },
+    Direction.DOWN: {
+        Direction.LEFT: Action.RIGHT,
+        Direction.RIGHT: Action.LEFT,
+        Direction.UP: Action.BACK,
+        Direction.DOWN: Action.STRAIGHT
+    },
+    Direction.UP: {
+        Direction.LEFT: Action.LEFT,
+        Direction.RIGHT: Action.RIGHT,
+        Direction.UP: Action.STRAIGHT,
+        Direction.DOWN: Action.BACK
+    }
+}
+
+
 Point = namedtuple('Point', 'x,y')
 
 FONT = pygame.font.SysFont('arial', 25)

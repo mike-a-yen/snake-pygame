@@ -1,6 +1,7 @@
 from collections import deque
 import logging
 import random
+import os
 from typing import List
 
 import hydra
@@ -131,11 +132,12 @@ class Agent:
         return action
 
 
-def init_logging(cfg):
+def init_logging(cfg, **kwargs):
     run = wandb.init(
         project="snake-pygame",
         config=OmegaConf.to_container(cfg),
-        tags=cfg.get('tags', [])
+        tags=cfg.get('tags', []),
+        **kwargs
     )
     return run
 
@@ -149,6 +151,11 @@ def train(cfg) -> None:
     assert smoothing > 0
     record = 0
     agent = Agent(cfg.agent)
+    if cfg.agent.model.initial_weights is not None:
+        artifact = run.use_artifact(cfg.agent.model.initial_weights)
+        datadir = artifact.download(root=None)
+        state_filename = os.path.join(datadir, 'state.pth')
+        agent.model.load(state_filename)
     game = SnakeGameAI(cfg.game)
 
     for game_idx in range(0, cfg.max_games):
